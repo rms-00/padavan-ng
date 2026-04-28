@@ -1,5 +1,5 @@
 ### All arguments here: https://github.com/bol-van/zapret
-# To enable ts fooling in Windows: netsh interface tcp set global timestamps=enabled
+### To enable ts fooling in Windows: netsh interface tcp set global timestamps=enabled
 
 ### http
 --filter-tcp=80

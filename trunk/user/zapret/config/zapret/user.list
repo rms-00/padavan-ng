@@ -27,8 +27,6 @@ anonymizer.ru
 anonymouse.org
 api.app.prod.grazie.aws.intellij.net
 api.cloudflareclient.com
-api.github.com
-api.githubcopilot.com
 api.home-connect.com
 api.protonmail.ch
 api.radarr.video
@@ -91,7 +89,6 @@ cloud.mongodb.com
 coinglasscdn.com
 coinglass.com
 colta.ru
-copilot-proxy.githubusercontent.com
 crunchyroll.com
 cub.red
 culturevelo.com
@@ -127,6 +124,8 @@ docker.elastic.co
 documentation.meraki.com
 doppiocdn.com
 doppiocdn.live
+doppiocdn.media
+doppiostreams.live
 doubleclick.net
 download.jetbrains.com
 download.screamingfrog.co.uk
@@ -164,6 +163,7 @@ forklog.com
 fork.pet
 formula1.com
 forum.voynaplemyon.com
+freewrt.de
 frontend.public.atl-paas.net
 fw-download.ubnt.com
 fw-update.ubnt.com
@@ -243,6 +243,7 @@ mediazona.ca
 mediazona.online
 medium.com
 meduza.io
+mega.co.nz
 megapeer.ru
 memohrc.org
 metacritic.com
@@ -310,7 +311,6 @@ proekt.media
 prostovpn.org
 protonmail.com
 proton.me
-proxy.individual.githubcopilot.com
 quora.com
 radarr.servarr.com
 radiosvoboda.org
@@ -423,6 +423,7 @@ warp.llimonix.pw
 watchguard.com
 weather.com
 weblance.com.ua
+webnovel.com
 welt.de
 wetransfer.com
 wgsw-eu.gcdn.co
@@ -432,7 +433,6 @@ windguru.cz
 wixmp.com
 wunderground.com
 www.currenttime.tv
-www.digitalocean.com
 www.hetzner.com
 www.hrw.org
 www.jabra.com

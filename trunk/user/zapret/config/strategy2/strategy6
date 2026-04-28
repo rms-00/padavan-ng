@@ -1,5 +1,5 @@
 ### All arguments here: https://github.com/bol-van/zapret2
-# To enable ts fooling in Windows: netsh interface tcp set global timestamps=enabled
+### To enable ts fooling in Windows: netsh interface tcp set global timestamps=enabled
 
 --blob=quic_google:@/usr/share/zapret/fake/quic_initial_www_google_com.bin
 --blob=tls_google:@/usr/share/zapret/fake/tls_clienthello_www_google_com.bin
