@@ -1,7 +1,7 @@
 # https://libusb.info
 # https://github.com/libusb/libusb
 
-SRC_VER = 1.0.29
+SRC_VER = 1.0.30
 SRC_NAME = libusb-$(SRC_VER)
 SRC_URL = https://github.com/libusb/libusb/releases/download/v$(SRC_VER)/libusb-$(SRC_VER).tar.bz2
 
@@ -36,7 +36,6 @@ configure:
 		--disable-static \
 		--disable-log \
 		--disable-udev \
-		--disable-timerfd \
 		--disable-examples-build \
 		--disable-tests-build \
 		--host=$(HOST_TARGET) \

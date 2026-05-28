@@ -27,7 +27,7 @@ PEER_PORT="$(nvram get vpnc_wg_peer_port)"
 PEER_ENDPOINT="$(nvram get vpnc_wg_peer_endpoint)"
 PEER_KEEPALIVE="$(nvram get vpnc_wg_peer_keepalive)"
 [ -n "$PEER_KEEPALIVE" ] || PEER_KEEPALIVE=25
-PEER_ALLOWEDIPS="$(nvram get vpnc_wg_peer_allowedips | tr -d ' ')"
+PEER_ALLOWEDIPS="$(nvram get vpnc_wg_peer_allowedips | tr -s ',' '\n')"
 POST_SCRIPT="/etc/storage/vpnc_post_script.sh"
 
 REMOTE_NETWORK_LIST="/etc/storage/vpnc_remote_network.list"
@@ -107,15 +107,26 @@ wg_setdns()
     update_resolvconf
 }
 
+check_host_available()
+{
+    timeout 3 2>&1 nslookup $PEER_ENDPOINT >/dev/null 2>&1
+    if [ $? -ne 0 ]; then
+        [ -z "$(nvram get wg_log_reduce_t)" ] && log "error: host $PEER_ENDPOINT not found"
+        nvram settmp wg_log_reduce_t=1
+        nvram settmp wg_need_restart_t=1
+        return 1
+    fi
+}
+
 setconf_wg()
 {
     is_started || return 1
 
-    if ! ip addr show $IF_NAME | grep -q "inet6"; then
-        PEER_ALLOWEDIPS=$(echo "$PEER_ALLOWEDIPS" | tr -s ',' '\n' | grep -v ':' | tr -s '\n' ',' | sed 's/,$//')
-    fi
+    check_host_available || exit 1
 
-    local awg gai
+    local allowed_ipv6
+    ip addr show $IF_NAME | grep -q "inet6" && allowed_ipv6=", ::/0"
+
     if [ "$MODULE" = "amneziawg" ]; then
         cps()
         {
@@ -128,11 +139,6 @@ setconf_wg()
         awg="$(cps)"
     fi
 
-    timeout 30 2>&1 nslookup $PEER_ENDPOINT >/dev/null 2>&1
-    if [ $? -ne 0 ]; then
-        error "not found host $PEER_ENDPOINT"
-    fi
-
     cat > "/tmp/${IF_NAME}.conf.$$" <<EOF
 [Interface]
 PrivateKey = $IF_PRIVATE
@@ -143,7 +149,7 @@ $awg
 PublicKey = $PEER_PUBLIC
 Endpoint = ${PEER_ENDPOINT}:${PEER_PORT}
 PersistentKeepalive = $PEER_KEEPALIVE
-AllowedIPs = $PEER_ALLOWEDIPS
+AllowedIPs = 0.0.0.0/0$allowed_ipv6
 EOF
     [ "$IF_PRESHARED" ] && echo "PresharedKey = $IF_PRESHARED" >> "/tmp/${IF_NAME}.conf.$$"
 
@@ -154,8 +160,7 @@ EOF
     [ "$1" = "reconnect" ] && return
 
     if ! echo $res | grep -q "error"; then
-        log "configuration $IF_NAME applied successfully"
-        $WG show $IF_NAME | grep -A 5 "peer:" | grep -v "transfer" | while read i; do
+        $WG show $IF_NAME | grep -A 5 "peer:" | grep -E "peer|endpoint" | while read i; do
             log "$i"
         done
         send_ping
@@ -241,18 +246,18 @@ wg_if_init()
 log_try_connect()
 {
     set_state 2
-    [ -n "$(nvram get wg_try_connect_t)" ] && return
+    [ -n "$(nvram get wg_log_reduce_t)" ] && return
     log "trying connect to $PEER_ENDPOINT"
 }
 
 log_unable_connect()
 {
     set_state 0
-    [ -n "$(nvram get wg_try_connect_t)" ] && return
+    [ -n "$(nvram get wg_log_reduce_t)" ] && return
     log "unable connect to $PEER_ENDPOINT"
 
     # prevent multiple messages
-    nvram settmp wg_try_connect_t=1
+    nvram settmp wg_log_reduce_t=1
 }
 
 log_success_connect()
@@ -260,16 +265,16 @@ log_success_connect()
     [ "$(get_state)" = "1" ] && return
     log "successfully connected"
     set_state 1
-    nvram unset wg_try_connect_t
+    nvram unset wg_log_reduce_t
 }
 
 connect_wg()
 {
     # $1 reconnect
 
-    [ "$(nvram get link_internet)" = 1 ] || return 1
-
-    if ! check_connected; then
+    if check_connected; then
+        [ -n "$(nvram get wg_log_reduce_t)" ] && log_success_connect
+    else
         setconf_wg $1
         if check_connection_status; then
             log_success_connect
@@ -342,16 +347,12 @@ start_wg()
     (
         flock -n 200 || exit 1
 
-        if [ "$(nvram get link_internet)" = 1 ]; then
-            nvram unset wg_need_restart_t
-        else
-            nvram settmp wg_need_restart_t=1
-            exit 1
-        fi
+        set_state 0
+        check_host_available || exit 1
 
         nvram settmp wg_latest_handshakes_t=$(date +%s)
-        nvram unset wg_try_connect_t
-        set_state 0
+        nvram unset wg_need_restart_t
+        nvram unset wg_log_reduce_t
 
         ipset_create
         wg_if_init
@@ -500,6 +501,13 @@ ipset_create()
     for name in $(bogon_networks); do
         ipset -q add $VPN_EXCLUDE_IPSET $name
     done
+
+    echo "$PEER_ALLOWEDIPS" | grep -qv "/0" \
+    && log "adding additional AllowedIPs to ipset '$VPN_REMOTE_IPSET'"
+
+    for name in $PEER_ALLOWEDIPS; do
+        ipset -q add $VPN_REMOTE_IPSET "$name"
+    done
 }
 
 bogon_networks()
@@ -509,7 +517,7 @@ bogon_networks()
         192.0.0.0/24 192.0.2.0/24 198.51.100.0/24
         203.0.113.0/24 224.0.0.0/4 240.0.0.0/4
         $(nvram get vpns_vnet)/24
-        $(nvram get lan_ipaddr)/$(nvram get lan_netmask)"
+        $(nvram get lan_ipaddr)/24"
 }
 
 ipt_set_rules()
@@ -565,7 +573,7 @@ stop_fw()
     ipt_remove_rule(){ while iptables -t $1 -C $2 2>/dev/null; do iptables -t $1 -D $2; done }
     ipt_remove_chain(){ iptables -t $1 -F $2 2>/dev/null && iptables -t $1 -X $2 2>/dev/null; }
 
-    ipt_remove_rule "mangle" "PREROUTING -s $(nvram get lan_ipaddr)/$(nvram get lan_netmask) -j vpnc_wireguard"
+    ipt_remove_rule "mangle" "PREROUTING -s $(nvram get lan_ipaddr)/24 -j vpnc_wireguard"
     ipt_remove_rule "mangle" "PREROUTING -s $(nvram get vpns_vnet)/24 -j vpnc_wireguard"
 
     ipt_remove_chain "mangle" "vpnc_wireguard"
@@ -583,7 +591,7 @@ start_fw()
 :vpnc_wireguard - [0:0]
 :vpnc_wireguard_remote - [0:0]
 :vpnc_wireguard_mark - [0:0]
--A PREROUTING -s $(nvram get lan_ipaddr)/$(nvram get lan_netmask) -j vpnc_wireguard
+-A PREROUTING -s $(nvram get lan_ipaddr)/24 -j vpnc_wireguard
 -A PREROUTING -s $(nvram get vpns_vnet)/24 -j vpnc_wireguard
 -A vpnc_wireguard -p udp --dport 53 -j RETURN
 -A vpnc_wireguard -p tcp --dport 53 -j RETURN

@@ -229,7 +229,7 @@ restart_sshd(void)
 	is_run_after = is_sshd_run();
 
 	if ((is_run_after != is_run_before) && nvram_match("sshd_wopen", "1") && nvram_match("fw_enable_x", "1"))
-		restart_firewall();
+		notify_rc(RCN_RELOAD_FIREWALL);
 }
 #endif
 
@@ -337,7 +337,7 @@ void restart_stubby(void)
 #endif
 #if defined(APP_ZAPRET)
 int is_zapret_run(void){
-	if (check_if_file_exist("/usr/bin/nfqws"))
+	if (check_if_file_exist("/usr/bin/nfqws") || check_if_file_exist("/usr/bin/nfqws2"))
 	{
 		if (pids("zapret"))
 			return 1;
@@ -538,7 +538,7 @@ start_httpd(int restart_fw)
 	nvram_set_int_temp("httpd_started", 1);
 
 	if (restart_fw && restart_fw_need && nvram_match("fw_enable_x", "1"))
-		restart_firewall();
+		notify_rc(RCN_RELOAD_FIREWALL);
 }
 
 void

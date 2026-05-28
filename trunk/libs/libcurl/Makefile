@@ -1,7 +1,7 @@
 # https://curl.se
 
-SRC_NAME = curl-8.19.0
-SRC_URL = https://github.com/curl/curl/releases/download/curl-8_19_0/$(SRC_NAME).tar.xz
+SRC_NAME = curl-8.20.0
+SRC_URL = https://github.com/curl/curl/releases/download/curl-8_20_0/$(SRC_NAME).tar.xz
 
 ifeq ($(shell LC_ALL=C [ $(SSL_VER) '<' 3.0 ] && echo 1), 1)
 SRC_NAME = curl-8.17.0
@@ -9,10 +9,8 @@ SRC_URL = https://github.com/curl/curl/releases/download/curl-8_17_0/$(SRC_NAME)
 endif
 
 QUIC = --without-nghttp3 --without-ngtcp2 --without-openssl-quic
-ifeq ($(CONFIG_FIRMWARE_INCLUDE_QUIC),y)
-QUIC = --with-nghttp3 --without-ngtcp2 --with-openssl-quic
-endif
-ifeq ($(CONFIG_FIRMWARE_INCLUDE_QUIC_NGTCP2),y)
+ifneq (,$(filter y, $(CONFIG_FIRMWARE_INCLUDE_QUIC) \
+                    $(CONFIG_FIRMWARE_INCLUDE_QUIC_NGTCP2)))
 QUIC = --with-nghttp3 --with-ngtcp2 --without-openssl-quic
 endif
 
